@@ -490,14 +490,14 @@ export const DetectionAnalysisWorkspace: React.FC = () => {
         <div className="xl:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col relative shadow-xs p-3 md:p-4">
           <div className="relative flex-1 bg-inverse-surface w-full min-h-[420px] overflow-hidden rounded-lg mt-2 flex items-center justify-center">
             {videoPlayUrl || isLiveCameraActive || isEsp32Active ? (
-              <div className="relative w-full h-full flex items-center justify-center">
+              <div className="relative inline-flex items-center justify-center max-w-full max-h-[560px] overflow-hidden">
                 {isEsp32Active ? (
-                  <div className="relative w-full h-full flex items-center justify-center">
+                  <div className="relative inline-flex items-center justify-center max-w-full max-h-[560px]">
                     <img
                       ref={imgRef}
                       src={esp32FrameData || esp32Url}
                       alt="ESP32-CAM Live Stream"
-                      className="max-h-[560px] w-full object-contain rounded-md select-none"
+                      className="block max-h-[560px] max-w-full w-auto h-auto rounded-md select-none"
                       onError={() => {
                         if (!esp32FrameData) {
                           setEsp32Error(`Connecting to ESP32 stream at ${esp32Url}... Ensure the camera is powered on and on the same WiFi.`);
@@ -535,20 +535,17 @@ export const DetectionAnalysisWorkspace: React.FC = () => {
                     loop
                     muted
                     playsInline
-                    className="max-h-[560px] w-full object-contain rounded-md"
+                    className="block max-h-[560px] max-w-full w-auto h-auto rounded-md"
                   />
                 )}
 
-                {/* YOLO Bounding Boxes Canvas */}
+                {/* YOLO Bounding Boxes Canvas Layer - Tight Pixel-Perfect Overlay */}
                 {showBoundingBoxes && (
-                  <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute inset-0 pointer-events-none w-full h-full">
                     {activeDetections.map((det, idx) => {
-                      const color =
-                        det.class === 'victim'
-                          ? '#ef4444'
-                          : det.class === 'boat'
-                          ? '#0284c7'
-                          : '#f59e0b';
+                      const isVictim = det.type === 'victim' || det.class.toLowerCase().includes('person') || det.class.toLowerCase().includes('victim');
+                      const isBoat = det.class.toLowerCase().includes('boat');
+                      const color = isVictim ? '#ef4444' : isBoat ? '#0284c7' : '#f59e0b';
 
                       const [x, y, w, h] = det.bbox;
 
@@ -557,16 +554,17 @@ export const DetectionAnalysisWorkspace: React.FC = () => {
                           key={idx}
                           className="absolute border-2 transition-all duration-75"
                           style={{
-                            left: `${x * 100}%`,
-                            top: `${y * 100}%`,
-                            width: `${w * 100}%`,
-                            height: `${h * 100}%`,
+                            left: `${Math.max(0, Math.min(100, x * 100))}%`,
+                            top: `${Math.max(0, Math.min(100, y * 100))}%`,
+                            width: `${Math.max(1, Math.min(100, w * 100))}%`,
+                            height: `${Math.max(1, Math.min(100, h * 100))}%`,
                             borderColor: color,
-                            backgroundColor: `${color}15`,
+                            backgroundColor: `${color}18`,
+                            boxShadow: `0 0 8px ${color}66`,
                           }}
                         >
                           <span
-                            className="absolute -top-5 left-0 px-1 py-0.5 text-[10px] font-bold text-white uppercase rounded whitespace-nowrap shadow-xs"
+                            className="absolute -top-5 left-0 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase rounded whitespace-nowrap shadow-md tracking-wider flex items-center gap-1"
                             style={{ backgroundColor: color }}
                           >
                             {det.class} {Math.round(det.confidence * 100)}%
@@ -589,7 +587,7 @@ export const DetectionAnalysisWorkspace: React.FC = () => {
             <div className="absolute bottom-3 left-3 right-3 flex flex-wrap justify-between items-center text-white font-data-mono text-[11px] bg-on-background/85 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 gap-2 z-10">
               <span>WATER COVERAGE: {waterCoverage}%</span>
               <span>VICTIMS DETECTED: {victimsCount}</span>
-              <span>SURVEY: SECTOR 12</span>
+              <span>SURVEY: KIIT CAMPUS 6</span>
               {isEsp32Active && (
                 <span className="text-emerald-400 font-bold flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />

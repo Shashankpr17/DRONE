@@ -21,12 +21,21 @@ export interface FrameAnalysisResult {
   inferenceTimeMs: number;
 }
 
-let floodSession: ort.InferenceSession | null = null;
-let standardSession: ort.InferenceSession | null = null;
+let primarySession: ort.InferenceSession | null = null;
 let isInitializing = false;
 
+// Relevant COCO Class Mappings for Disaster Response
+const RELEVANT_CLASSES: Record<number, { name: string; type: 'victim' | 'asset' | 'infrastructure' }> = {
+  0: { name: 'Stranded Person', type: 'victim' },
+  8: { name: 'Rescue Boat', type: 'asset' },
+  2: { name: 'Vehicle', type: 'infrastructure' }, // Car
+  3: { name: 'Vehicle', type: 'infrastructure' }, // Motorcycle
+  5: { name: 'Vehicle', type: 'infrastructure' }, // Bus
+  7: { name: 'Vehicle', type: 'infrastructure' }, // Truck
+};
+
 export async function initYoloModels(): Promise<boolean> {
-  if (floodSession) return true;
+  if (primarySession) return true;
   if (isInitializing) return false;
 
   isInitializing = true;
@@ -36,24 +45,22 @@ export async function initYoloModels(): Promise<boolean> {
       graphOptimizationLevel: 'all',
     };
 
-    // Load custom flood model
+    // 1. Load high-accuracy YOLO11n ONNX (Fast 10MB WASM allocation with full 80 COCO classes)
     try {
-      floodSession = await ort.InferenceSession.create('/models/yolov11_flood.onnx', sessionOptions);
-      console.log('✅ YOLOv11 Flood Vision ONNX loaded in browser');
+      primarySession = await ort.InferenceSession.create('/models/yolo11n.onnx', sessionOptions);
+      console.log('✅ YOLO11n High-Accuracy COCO Model loaded in browser');
     } catch (err) {
-      console.warn('Flood ONNX model load warning:', err);
-    }
-
-    // Load standard YOLO11 model as auxiliary
-    try {
-      standardSession = await ort.InferenceSession.create('/models/yolo11n.onnx', sessionOptions);
-      console.log('✅ Standard YOLO11n ONNX loaded in browser');
-    } catch (err) {
-      console.warn('Standard ONNX model load warning:', err);
+      console.warn('yolo11n load failed, trying yolov8m_coco fallback:', err);
+      try {
+        primarySession = await ort.InferenceSession.create('/models/yolov8m_coco.onnx', sessionOptions);
+        console.log('✅ YOLOv8m Model loaded as fallback');
+      } catch (fallbackErr) {
+        console.error('All ONNX model loads failed:', fallbackErr);
+      }
     }
 
     isInitializing = false;
-    return !!(floodSession || standardSession);
+    return !!primarySession;
   } catch (e) {
     console.error('Failed to initialize ONNX models:', e);
     isInitializing = false;
@@ -94,12 +101,19 @@ function preprocessImage(
     float32Data[area + i] = g / 255.0; // G
     float32Data[area * 2 + i] = b / 255.0; // B
 
-    // Muddy flood water / turbid water hue estimation
-    // Brownish flood water: R > 70, G > 60, B > 30 with R > B
-    const isBrownWater = r > 65 && g > 55 && b < 140 && r >= b;
-    // Turbid dark flood water
-    const isDarkWater = r < 90 && g < 110 && b < 120 && Math.abs(r - g) < 25;
-    if (isBrownWater || isDarkWater) {
+    // Accurate water index:
+    // Exclude dry dirt, dry sand, dry grass (where Red is dominant: r > g and r > b + 25)
+    const isDrySoil = r > 70 && r > b + 25 && r >= g;
+
+    // Water:
+    // 1. Blue/Cyan water: Blue is prominent
+    const isBlueWater = !isDrySoil && b > r + 8 && b > 55;
+    // 2. Greenish/Turbid flood river water: Green > Red and Blue > 50
+    const isGreenTurbidWater = !isDrySoil && g > r + 12 && b > 60 && Math.abs(g - b) < 45;
+    // 3. Deep dark water (high absorption)
+    const isDeepDarkWater = !isDrySoil && r < 50 && g < 65 && b < 80 && Math.abs(r - g) < 20;
+
+    if (isBlueWater || isGreenTurbidWater || isDeepDarkWater) {
       waterPixelCount++;
     }
   }
@@ -147,28 +161,29 @@ export async function runClientYoloInference(
 ): Promise<FrameAnalysisResult> {
   const startTime = performance.now();
 
-  if (!floodSession && !standardSession) {
+  if (!primarySession) {
     await initYoloModels();
   }
 
   const { tensor, waterCoverage } = preprocessImage(source);
   const rawBoxes: DetectionBox[] = [];
 
-  // 1. Run Custom Flood Vision Model
-  if (floodSession) {
+  if (primarySession) {
     try {
       const feeds: Record<string, ort.Tensor> = {};
-      const inputName = floodSession.inputNames[0] || 'images';
+      const inputName = primarySession.inputNames[0] || 'images';
       feeds[inputName] = tensor;
 
-      const results = await floodSession.run(feeds);
-      const outputName = floodSession.outputNames[0];
+      const results = await primarySession.run(feeds);
+      const outputName = primarySession.outputNames[0];
       const output = results[outputName];
 
       if (output && output.data) {
         const data = output.data as Float32Array;
-        // Output tensor shape: [1, 6, 8400]
+        // Output tensor shape: [1, numChannels, 8400]
+        // numChannels = 84 (4 bbox + 80 COCO classes) or 6 for custom 2-class
         const numAnchors = 8400;
+        const numChannels = data.length / numAnchors;
 
         for (let i = 0; i < numAnchors; i++) {
           const cx = data[0 * numAnchors + i] / 640.0;
@@ -176,79 +191,61 @@ export async function runClientYoloInference(
           const w = data[2 * numAnchors + i] / 640.0;
           const h = data[3 * numAnchors + i] / 640.0;
 
-          // Scores for class 0 (stranded_person) and class 1 (group_of_people)
-          const score0 = data[4 * numAnchors + i];
-          const score1 = data[5 * numAnchors + i];
+          if (w < 0.02 || h < 0.02 || w > 0.95 || h > 0.95) continue;
 
-          let bestScore = score0;
-          let bestClass = 'Stranded Person';
+          // For standard COCO 80-class model
+          if (numChannels >= 84) {
+            let maxScore = 0;
+            let bestClassId = -1;
 
-          if (score1 > score0) {
-            bestScore = score1;
-            bestClass = 'Victims Group';
-          }
+            // Only check classes relevant to disaster response (person, boat, vehicles)
+            for (const classIdStr in RELEVANT_CLASSES) {
+              const cId = Number(classIdStr);
+              const score = data[(4 + cId) * numAnchors + i];
+              if (score > maxScore) {
+                maxScore = score;
+                bestClassId = cId;
+              }
+            }
 
-          // Calibrated threshold for 10-epoch checkpoint
-          if (bestScore >= 0.03 && w > 0.02 && h > 0.02 && w < 0.8 && h < 0.8) {
-            const x = Math.max(0, Math.min(1, cx - w / 2));
-            const y = Math.max(0, Math.min(1, cy - h / 2));
-            const displayConf = bestScore < 0.1 ? Math.min(0.95, Math.max(0.68, Math.round(bestScore * 1000) / 100)) : Math.round(bestScore * 100) / 100;
+            // Clean confidence threshold for high-precision detection
+            if (maxScore >= 0.35 && bestClassId >= 0) {
+              const x = Math.max(0, Math.min(1, cx - w / 2));
+              const y = Math.max(0, Math.min(1, cy - h / 2));
+              const classInfo = RELEVANT_CLASSES[bestClassId];
 
-            rawBoxes.push({
-              id: `flood_${rawBoxes.length + 1}`,
-              class: bestClass,
-              confidence: displayConf,
-              bbox: [x, y, Math.min(1 - x, w), Math.min(1 - y, h)],
-              type: 'victim',
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Flood inference error:', err);
-    }
-  }
+              rawBoxes.push({
+                id: `det_${rawBoxes.length + 1}`,
+                class: classInfo.name,
+                confidence: Math.round(maxScore * 100) / 100,
+                bbox: [x, y, Math.min(1 - x, w), Math.min(1 - y, h)],
+                type: classInfo.type,
+              });
+            }
+          } else {
+            // Fallback for custom model
+            const score0 = data[4 * numAnchors + i];
+            const score1 = numChannels > 5 ? data[5 * numAnchors + i] : 0;
+            const maxScore = Math.max(score0, score1);
+            const isGroup = score1 > score0;
 
-  // 2. Run Standard YOLO11 for auxiliary person & vehicle detection
-  if (standardSession && rawBoxes.length === 0) {
-    try {
-      const feeds: Record<string, ort.Tensor> = {};
-      const inputName = standardSession.inputNames[0] || 'images';
-      feeds[inputName] = tensor;
+            if (maxScore >= 0.25) {
+              const x = Math.max(0, Math.min(1, cx - w / 2));
+              const y = Math.max(0, Math.min(1, cy - h / 2));
 
-      const results = await standardSession.run(feeds);
-      const outputName = standardSession.outputNames[0];
-      const output = results[outputName];
-
-      if (output && output.data) {
-        const data = output.data as Float32Array;
-        const numAnchors = 8400;
-
-        for (let i = 0; i < numAnchors; i++) {
-          const cx = data[0 * numAnchors + i] / 640.0;
-          const cy = data[1 * numAnchors + i] / 640.0;
-          const w = data[2 * numAnchors + i] / 640.0;
-          const h = data[3 * numAnchors + i] / 640.0;
-
-          // Class 0 in COCO is person
-          const personScore = data[4 * numAnchors + i];
-
-          if (personScore >= 0.25 && w > 0.02 && h > 0.02) {
-            const x = Math.max(0, Math.min(1, cx - w / 2));
-            const y = Math.max(0, Math.min(1, cy - h / 2));
-
-            rawBoxes.push({
-              id: `std_person_${rawBoxes.length + 1}`,
-              class: 'Stranded Person',
-              confidence: Math.round(personScore * 100) / 100,
-              bbox: [x, y, Math.min(1 - x, w), Math.min(1 - y, h)],
-              type: 'victim',
-            });
+              rawBoxes.push({
+                id: `det_${rawBoxes.length + 1}`,
+                class: isGroup ? 'Victims Group' : 'Stranded Person',
+                confidence: Math.round(maxScore * 100) / 100,
+                bbox: [x, y, Math.min(1 - x, w), Math.min(1 - y, h)],
+                type: 'victim',
+              });
+            }
           }
         }
       }
     } catch (err) {
-      console.warn('Standard YOLO inference error:', err);
+      console.warn('YOLO inference error:', err);
     }
   }
 
@@ -268,3 +265,4 @@ export async function runClientYoloInference(
     inferenceTimeMs: durationMs,
   };
 }
+
