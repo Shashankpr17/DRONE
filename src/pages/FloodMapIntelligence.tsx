@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { settlementsData, infrastructureData, roadAccessibilityData, waterSpreadData as defaultWaterSpread } from '../data/mockData';
+import { settlementsData, infrastructureData, waterSpreadData as defaultWaterSpread } from '../data/mockData';
 import { DisasterGoogleMap, type MapLayerState, type MapTargetLocation } from '../components/DisasterGoogleMap';
 
 export const FloodMapIntelligence: React.FC = () => {
   const [layers, setLayers] = useState<MapLayerState>({
     waterLevels: true,
-    waterSpread: true,
+    waterSpread: false,
     settlements: true,
-    roadStatus: true,
+    roadStatus: false,
     infrastructure: true,
     activeAssets: true,
-    safeRoutes: true,
+    safeRoutes: false,
   });
 
   const [targetLocation] = useState<MapTargetLocation | null>(null);
@@ -36,7 +36,7 @@ export const FloodMapIntelligence: React.FC = () => {
           title="Toggle GIS Layers"
         >
           <span className="material-symbols-outlined text-primary text-base">layers</span>
-          <span>{isLayersOpen ? 'Hide Map Layers' : 'Map Layers (7)'}</span>
+          <span>{isLayersOpen ? 'Hide Map Layers' : 'Map Layers (4)'}</span>
         </button>
 
         {/* Collapsible Map Layer Controls */}
@@ -70,21 +70,7 @@ export const FloodMapIntelligence: React.FC = () => {
                 </div>
               </label>
 
-              {/* Layer 2: Water Spread */}
-              <label className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={layers.waterSpread}
-                  onChange={(e) => setLayers({ ...layers, waterSpread: e.target.checked })}
-                  className="mt-0.5 rounded border-outline-variant text-primary focus:ring-primary"
-                />
-                <div className="flex-1">
-                  <span className="font-semibold text-on-surface block">Water Spread ({waterSpreadData.direction})</span>
-                  <span className="text-on-surface-variant text-[11px] block">Trend: {waterSpreadData.trend} ({waterSpreadData.changeSincePreviousSurvey})</span>
-                </div>
-              </label>
-
-              {/* Layer 3: Affected Settlements */}
+              {/* Layer 2: Affected Settlements */}
               <label className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer">
                 <input
                   type="checkbox"
@@ -98,21 +84,7 @@ export const FloodMapIntelligence: React.FC = () => {
                 </div>
               </label>
 
-              {/* Layer 4: Road Accessibility */}
-              <label className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={layers.roadStatus}
-                  onChange={(e) => setLayers({ ...layers, roadStatus: e.target.checked })}
-                  className="mt-0.5 rounded border-outline-variant text-primary focus:ring-primary"
-                />
-                <div className="flex-1">
-                  <span className="font-semibold text-on-surface block">Road Status ({roadAccessibilityData.openRoads} Open / {roadAccessibilityData.submergedRoads} Submerged)</span>
-                  <span className="text-on-surface-variant text-[11px] block">Nandankanan &amp; Sikharchandi access</span>
-                </div>
-              </label>
-
-              {/* Layer 5: Critical Infrastructure */}
+              {/* Layer 3: Critical Infrastructure */}
               <label className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer">
                 <input
                   type="checkbox"
@@ -126,21 +98,7 @@ export const FloodMapIntelligence: React.FC = () => {
                 </div>
               </label>
 
-              {/* Layer 6: Safe Evacuation Routes */}
-              <label className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={layers.safeRoutes}
-                  onChange={(e) => setLayers({ ...layers, safeRoutes: e.target.checked })}
-                  className="mt-0.5 rounded border-outline-variant text-primary focus:ring-primary"
-                />
-                <div className="flex-1">
-                  <span className="font-semibold text-on-surface block">Safe Evacuation Corridors</span>
-                  <span className="text-on-surface-variant text-[11px] block">Sikharchandi → Relief Camp Hub</span>
-                </div>
-              </label>
-
-              {/* Layer 7: Active Assets & Units */}
+              {/* Layer 4: Active Assets & Units */}
               <label className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer">
                 <input
                   type="checkbox"
