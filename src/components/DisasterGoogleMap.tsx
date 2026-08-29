@@ -491,17 +491,6 @@ export const DisasterGoogleMap: React.FC<DisasterGoogleMapProps> = ({
           Street Map
         </button>
       </div>
-
-      {/* Interactive Legend / Live Telemetry HUD */}
-      <div className="absolute bottom-3 left-3 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-lg p-2.5 shadow-lg text-xs font-mono flex items-center gap-3">
-        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-        <div>
-          <span className="font-bold text-white block">LIVE GIS MESH · SECTOR 12</span>
-          <span className="text-slate-400 text-[11px]">
-            Drone: {currentTelemetry.lat.toFixed(4)}, {currentTelemetry.lng.toFixed(4)} · Alt: {currentTelemetry.altitude}m
-          </span>
-        </div>
-      </div>
     </div>
   );
 };
