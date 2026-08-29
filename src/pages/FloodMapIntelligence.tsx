@@ -14,6 +14,7 @@ export const FloodMapIntelligence: React.FC = () => {
   });
 
   const [targetLocation] = useState<MapTargetLocation | null>(null);
+  const [isLayersOpen, setIsLayersOpen] = useState(false);
   const waterSpreadData = defaultWaterSpread;
 
   return (
@@ -27,17 +28,31 @@ export const FloodMapIntelligence: React.FC = () => {
         />
       </div>
 
-      {/* Main Overlay Bento Grid Panels */}
-      <div className="relative z-20 flex-1 p-4 md:p-6 flex flex-col justify-between pointer-events-none">
-        <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
-          {/* Left Panel: Map Layer Controls */}
-          <div className="pointer-events-auto w-full sm:w-80 bg-surface-container-lowest/95 backdrop-blur-md rounded-xl border border-outline-variant shadow-lg flex flex-col max-h-[70vh] overflow-y-auto">
+      {/* Floating Layer Toggle Button & Collapsible Panel */}
+      <div className="relative z-20 p-4 pointer-events-none flex flex-col items-start gap-2">
+        <button
+          onClick={() => setIsLayersOpen(!isLayersOpen)}
+          className="pointer-events-auto flex items-center gap-2 px-3.5 py-2 bg-surface-container-lowest/95 backdrop-blur-md hover:bg-surface-container-lowest text-on-surface rounded-xl border border-outline-variant shadow-md text-xs font-bold transition-all cursor-pointer"
+          title="Toggle GIS Layers"
+        >
+          <span className="material-symbols-outlined text-primary text-base">layers</span>
+          <span>{isLayersOpen ? 'Hide Map Layers' : 'Map Layers (7)'}</span>
+        </button>
+
+        {/* Collapsible Map Layer Controls */}
+        {isLayersOpen && (
+          <div className="pointer-events-auto w-full sm:w-80 bg-surface-container-lowest/95 backdrop-blur-md rounded-xl border border-outline-variant shadow-xl flex flex-col max-h-[70vh] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="p-3 border-b border-outline-variant bg-surface-bright/80 rounded-t-xl flex justify-between items-center sticky top-0 bg-surface-container-lowest">
               <h3 className="font-headline-md text-sm font-bold text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-base">layers</span>
                 Map Layers &amp; Overlays
               </h3>
-              <span className="text-[11px] font-mono text-on-surface-variant uppercase">7 Feeds</span>
+              <button
+                onClick={() => setIsLayersOpen(false)}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
             </div>
 
             <div className="p-3 space-y-2 text-xs">
@@ -79,7 +94,7 @@ export const FloodMapIntelligence: React.FC = () => {
                 />
                 <div className="flex-1">
                   <span className="font-semibold text-on-surface block">Affected Settlements ({settlementsData.length})</span>
-                  <span className="text-on-surface-variant text-[11px] block">Sector 12, Riverside, East Hamlet</span>
+                  <span className="text-on-surface-variant text-[11px] block">KIIT Campus 6, Patia, Sikharchandi</span>
                 </div>
               </label>
 
@@ -93,7 +108,7 @@ export const FloodMapIntelligence: React.FC = () => {
                 />
                 <div className="flex-1">
                   <span className="font-semibold text-on-surface block">Road Status ({roadAccessibilityData.openRoads} Open / {roadAccessibilityData.submergedRoads} Submerged)</span>
-                  <span className="text-on-surface-variant text-[11px] block">Clearance and route passability</span>
+                  <span className="text-on-surface-variant text-[11px] block">Nandankanan &amp; Sikharchandi access</span>
                 </div>
               </label>
 
@@ -107,7 +122,7 @@ export const FloodMapIntelligence: React.FC = () => {
                 />
                 <div className="flex-1">
                   <span className="font-semibold text-on-surface block">Critical Infrastructure ({infrastructureData.length})</span>
-                  <span className="text-on-surface-variant text-[11px] block">Bridges, hospitals, power grid</span>
+                  <span className="text-on-surface-variant text-[11px] block">KIMS Hospital, Patia Bridge, Substation</span>
                 </div>
               </label>
 
@@ -121,7 +136,7 @@ export const FloodMapIntelligence: React.FC = () => {
                 />
                 <div className="flex-1">
                   <span className="font-semibold text-on-surface block">Safe Evacuation Corridors</span>
-                  <span className="text-on-surface-variant text-[11px] block">North Ridge → Camp Alpha safe route</span>
+                  <span className="text-on-surface-variant text-[11px] block">Sikharchandi → Relief Camp Hub</span>
                 </div>
               </label>
 
@@ -135,14 +150,12 @@ export const FloodMapIntelligence: React.FC = () => {
                 />
                 <div className="flex-1">
                   <span className="font-semibold text-on-surface block">Active Units &amp; Relief Camps</span>
-                  <span className="text-on-surface-variant text-[11px] block">Drones, NDRF boats, Camp Alpha</span>
+                  <span className="text-on-surface-variant text-[11px] block">DRONE-001, NDRF boats, KIIT Camp</span>
                 </div>
               </label>
             </div>
           </div>
-
-          {/* Right Panel removed as requested for unobstructed full-screen map view */}
-        </div>
+        )}
       </div>
     </div>
   );
