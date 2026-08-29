@@ -195,26 +195,6 @@ export const DisasterGoogleMap: React.FC<DisasterGoogleMapProps> = ({
         </div>
       `);
       group.addLayer(floodPoly1);
-
-      const floodZone2Coords: [number, number][] = [
-        [20.3490, 85.8210],
-        [20.3420, 85.8250],
-        [20.3400, 85.8180],
-      ];
-
-      const floodPoly2 = L.polygon(floodZone2Coords, {
-        color: '#f59e0b',
-        weight: 2,
-        fillColor: '#38bdf8',
-        fillOpacity: 0.32,
-      }).bindPopup(`
-        <div style="font-family: sans-serif; font-size: 12px; color: #1e293b;">
-          <h4 style="margin: 0 0 4px; font-weight: bold; color: #0284c7; font-size: 13px;">🌊 Patia Lowland Water Spread</h4>
-          <p style="margin: 2px 0;"><strong>Estimated Depth:</strong> 1.4m</p>
-          <p style="margin: 2px 0;"><strong>Status:</strong> Active Inundation</p>
-        </div>
-      `);
-      group.addLayer(floodPoly2);
     }
 
     // 2. Affected Settlements Markers
