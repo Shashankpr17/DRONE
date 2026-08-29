@@ -143,18 +143,6 @@ export const FloodMapIntelligence: React.FC = () => {
 
           {/* Right Panel removed as requested for unobstructed full-screen map view */}
         </div>
-
-        {/* Bottom Floating Status Bar */}
-        <div className="pointer-events-auto self-center bg-surface-container-lowest/90 backdrop-blur-md rounded-full px-5 py-2 flex items-center gap-4 shadow-md border border-outline-variant text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-mono text-on-surface font-semibold">GIS INTELLIGENCE ACTIVE</span>
-          </div>
-          <div className="w-px h-3.5 bg-outline-variant"></div>
-          <div className="font-mono text-on-surface-variant text-[11px]">
-            KIIT Campus 6 · Water Spread: South-East (+13%) · 5 Settlements Monitored
-          </div>
-        </div>
       </div>
     </div>
   );
